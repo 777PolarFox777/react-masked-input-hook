@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useInputMask } from '../src/index';
+import { useInputMask } from '../src';
 
 const mask = '+7 (###) ###-##-##';
 

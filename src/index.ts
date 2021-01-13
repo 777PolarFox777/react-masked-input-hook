@@ -25,25 +25,28 @@ export const useInputMask = (props: InputMaskProps) => {
   const value = props.value ?? emptyValue;
 
   const handleFocus = React.useCallback((ev: FocusEvent<HTMLInputElement>) => {
-    const maskedValue = applyMask({
-      value, mask, placeholderChar, formatChars,
-    });
+    const placeholderCharIndex = value.indexOf(placeholderChar);
 
-    const start = maskedValue.indexOf(placeholderChar);
-
-    if (start === -1) {
-      // no placeholder chars in value
+    if (placeholderCharIndex === -1) {
+      // no placeholder chars in value, leave cursor where it is
       return;
     }
 
-    (ev.target as HTMLInputElement).setSelectionRange(start, start);
+    const setCursorPosition = () => (ev.target as HTMLInputElement)
+      .setSelectionRange(placeholderCharIndex, placeholderCharIndex);
 
-    setTimeout(() => {
-      (ev.target as HTMLInputElement).setSelectionRange(start, start);
-    });
+    setCursorPosition();
+    // for unknown reasons Chrome resets focus twice after render
+    // timeout is needed to reset focus again
+    setTimeout(setCursorPosition);
   }, [value]);
 
   const handleKeyDown = React.useCallback((ev) => {
+    if (ev.ctrlKey) {
+      // TODO: handle CTRL + X
+      return;
+    }
+
     if (ev.key === 'Backspace') {
       ev.preventDefault();
       const selectionStart = ev.target.selectionStart ?? 0;
@@ -68,10 +71,6 @@ export const useInputMask = (props: InputMaskProps) => {
 
     if (ev.key === 'Delete') {
       ev.preventDefault();
-    }
-
-    if (ev.ctrlKey) {
-      return;
     }
 
     if (ev.key.length === 1) {
