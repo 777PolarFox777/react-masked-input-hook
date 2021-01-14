@@ -1,5 +1,4 @@
-import type { Diff } from 'fast-diff';
-import diff from 'fast-diff';
+import { RemoveDirection } from './constants';
 
 export interface FormatChars {
   [x: string]: string,
@@ -18,7 +17,7 @@ export interface RemoveCharsArgs {
   formatChars: FormatChars,
   inputElement: HTMLInputElement,
   onChange: (value: string) => void,
-  valueDiff: Diff[],
+  direction: RemoveDirection,
 }
 
 export interface ReplaceCharsArgs {
@@ -28,6 +27,23 @@ export interface ReplaceCharsArgs {
   inputElement: HTMLInputElement,
   onChange: (value: string) => void,
   chars: string,
+}
+
+export interface PasteCharsArgs {
+  mask: string,
+  placeholderChar: string,
+  formatChars: FormatChars,
+  inputElement: HTMLInputElement,
+  onChange: (value: string) => void,
+  chars: string,
+}
+
+export interface CutCharsArgs {
+  mask: string,
+  placeholderChar: string,
+  formatChars: FormatChars,
+  inputElement: HTMLInputElement,
+  onChange: (value: string) => void,
 }
 
 export interface InputCharArgs {
@@ -90,71 +106,106 @@ export const applyMask = (args: ApplyMaskArgs) => {
     }
 
     // non editable
-    // slice until meet non editable char from mask
-    while (tempValue.length && valueChar !== char) {
-      tempValue = tempValue.slice(1);
-
-      // eslint-disable-next-line prefer-destructuring
-      valueChar = tempValue[0];
-    }
-
     return char;
   }).join('');
 };
 
 export const removeChars = (args: RemoveCharsArgs) => {
   const {
-    inputElement, mask, placeholderChar, formatChars, onChange, valueDiff,
+    inputElement, mask, placeholderChar, formatChars, onChange, direction,
   } = args;
 
-  const removeDiffIndex = valueDiff.findIndex((item) => item[0] === diff.DELETE);
+  const { value } = inputElement;
 
-  if (removeDiffIndex === -1) {
-    // chars were not removed
+  const selectionStart = inputElement.selectionStart ?? 0;
+  const selectionEnd = inputElement.selectionEnd ?? 0;
+
+  const isRange = !!(selectionEnd - selectionStart);
+
+  if (isRange) {
+    const newValue = value.split('').map((valueChar, index) => {
+      const maskChar = mask[index];
+
+      const rule = maskChar ? formatChars[maskChar] : null;
+
+      if (!rule) {
+        // not editable
+        return valueChar;
+      }
+
+      if (index >= selectionStart && index < selectionEnd) {
+        return placeholderChar;
+      }
+
+      return valueChar;
+    }).join('');
+
+    inputElement.value = newValue;
+    onChange(newValue);
+
+    const placeholderCharIndex = direction === RemoveDirection.Left
+      ? selectionStart
+        + newValue.slice(selectionStart, selectionEnd).indexOf(placeholderChar)
+      : selectionStart
+        + newValue.slice(selectionStart, selectionEnd).lastIndexOf(placeholderChar) + 1;
+
+    const newCursorPosition = placeholderCharIndex === -1 ? newValue.length : placeholderCharIndex;
+    // move cursor by number of inserted symbols
+    inputElement.setSelectionRange(newCursorPosition, newCursorPosition);
+
     return;
   }
 
-  const [, removedChars = ''] = valueDiff[removeDiffIndex] ?? [];
+  const nextEditableIndex = (() => {
+    if (direction === RemoveDirection.Left) {
+      const maskPart = mask.slice(0, selectionStart);
 
-  const removeStart = valueDiff.slice(0, removeDiffIndex).map((item) => item[1]).join('').length;
-  const removeEnd = removeStart + removedChars.length;
+      const lastEditableReversed = maskPart.split('').reverse().findIndex((char) => formatChars[char]);
 
-  if (removedChars === placeholderChar) {
-    const newCursorPosition = inputElement.selectionStart ?? 0;
-    inputElement.setSelectionRange(newCursorPosition - 1, newCursorPosition - 1);
+      if (lastEditableReversed === -1) {
+        return -1;
+      }
+
+      return (maskPart.length - 1) - lastEditableReversed;
+    }
+
+    if (direction === RemoveDirection.Right) {
+      const maskPart = mask.slice(selectionStart);
+
+      const lastEditable = maskPart.split('').findIndex((char) => formatChars[char]);
+
+      if (lastEditable === -1) {
+        return -1;
+      }
+
+      return selectionStart + lastEditable;
+    }
+
+    return -1;
+  })();
+
+  if (nextEditableIndex === -1) {
+    inputElement.setSelectionRange(selectionStart, selectionStart);
 
     return;
   }
 
-  const newValue = valueDiff.reduce((acc, item) => {
-    const [type, chars] = item;
-
-    if (type === diff.EQUAL) {
-      return acc + chars;
+  const newValue = value.split('').map((char, index) => {
+    if (index === nextEditableIndex) {
+      return placeholderChar;
     }
 
-    if (type === diff.DELETE) {
-      // replace each editable char to placeholderChar
-      const maskPart = mask.slice(removeStart, removeEnd);
-
-      return acc + maskPart.split('').map((char, index) => {
-        if (formatChars[char]) {
-          // editable
-          // fill with placeholder chars
-          return placeholderChar;
-        }
-
-        return chars[index] ?? '';
-      }).join('');
-    }
-
-    return acc;
-  }, '');
+    return char;
+  }).join('');
 
   inputElement.value = newValue;
   onChange(newValue);
 
-  inputElement.setSelectionRange(removeStart, removeStart);
+  if (direction === RemoveDirection.Left) {
+    inputElement.setSelectionRange(nextEditableIndex, nextEditableIndex);
+  } else {
+    inputElement.setSelectionRange(nextEditableIndex + 1, nextEditableIndex + 1);
+  }
 };
 
 export const replaceChars = (args: ReplaceCharsArgs) => {
@@ -169,13 +220,13 @@ export const replaceChars = (args: ReplaceCharsArgs) => {
 
   const isRange = !!(selectionEnd - selectionStart);
 
+  if (!isRange) {
+    return;
+  }
+
   let charsToInsert = chars;
 
   const newValue = value.split('').map((valueChar, index) => {
-    const condition = isRange
-      ? index >= selectionStart && index <= selectionEnd
-      : index >= selectionStart && valueChar === placeholderChar;
-
     const maskChar = mask[index];
 
     const rule = maskChar ? formatChars[maskChar] : null;
@@ -188,7 +239,7 @@ export const replaceChars = (args: ReplaceCharsArgs) => {
       return valueChar;
     }
 
-    if (condition) {
+    if (index >= selectionStart && index <= selectionEnd) {
       if (charsToInsert) {
         while (charsToInsert) {
           const topChar = charsToInsert[0];
@@ -203,6 +254,91 @@ export const replaceChars = (args: ReplaceCharsArgs) => {
         }
 
         return placeholderChar;
+      }
+
+      return placeholderChar;
+    }
+
+    return valueChar;
+  }).join('');
+
+  inputElement.value = newValue;
+  onChange(newValue);
+
+  const placeholderCharIndex = newValue.indexOf(placeholderChar);
+
+  const newCursorPosition = placeholderCharIndex === -1 ? newValue.length : placeholderCharIndex;
+  // move cursor by number of inserted symbols
+  inputElement.setSelectionRange(newCursorPosition, newCursorPosition);
+};
+
+export const cutChars = (args: CutCharsArgs) => {
+  const {
+    inputElement,
+  } = args;
+
+  const { value } = inputElement;
+
+  const selectionStart = inputElement.selectionStart ?? 0;
+  const selectionEnd = inputElement.selectionEnd ?? 0;
+
+  const isRange = !!(selectionEnd - selectionStart);
+
+  if (!isRange) {
+    return;
+  }
+
+  const cutValue = value.slice(selectionStart, selectionEnd);
+
+  try {
+    navigator.clipboard.writeText(cutValue);
+  } catch (err) {
+    console.warn(err);
+  }
+
+  removeChars({
+    ...args,
+    direction: RemoveDirection.Left,
+  });
+};
+
+export const pasteChars = (args: PasteCharsArgs) => {
+  const {
+    inputElement, mask, placeholderChar, formatChars, onChange, chars,
+  } = args;
+
+  const { value } = inputElement;
+
+  const selectionStart = inputElement.selectionStart ?? 0;
+
+  let charsToInsert = chars;
+
+  const newValue = value.split('').map((valueChar, index) => {
+    const condition = index >= selectionStart && valueChar === placeholderChar;
+
+    const maskChar = mask[index];
+
+    const rule = maskChar ? formatChars[maskChar] : null;
+
+    if (!rule) {
+      if (valueChar === charsToInsert[0]) {
+        charsToInsert = charsToInsert.slice(1);
+      }
+      // not editable
+      return valueChar;
+    }
+
+    if (condition) {
+      while (charsToInsert) {
+        const topChar = charsToInsert[0];
+
+        const isMatch = rule && topChar ? new RegExp(rule).test(topChar) : false;
+
+        charsToInsert = charsToInsert.slice(1);
+
+        if (isMatch) {
+          return topChar;
+        }
       }
 
       return placeholderChar;

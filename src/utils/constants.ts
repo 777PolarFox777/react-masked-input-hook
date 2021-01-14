@@ -3,3 +3,8 @@ export const defaultFormatChars = {
   A: '[A-Z]',
   a: '[A-z]',
 };
+
+export enum RemoveDirection {
+  Left,
+  Right,
+}

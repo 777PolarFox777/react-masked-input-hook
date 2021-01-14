@@ -1,9 +1,19 @@
-import React, { FocusEvent, ClipboardEvent } from 'react';
-import diff from 'fast-diff';
+import React, {
+  ChangeEvent,
+  ClipboardEvent,
+  ClipboardEventHandler,
+  FocusEvent,
+  FocusEventHandler,
+  KeyboardEvent,
+  KeyboardEventHandler,
+  MouseEvent,
+  MouseEventHandler,
+} from 'react';
 import {
-  applyMask, FormatChars, inputChar, removeChars, replaceChars,
+  applyMask, cutChars, FormatChars, inputChar, pasteChars, removeChars,
 } from './utils/mask';
-import { defaultFormatChars } from './utils/constants';
+import { defaultFormatChars, RemoveDirection } from './utils/constants';
+import { valueOrEmpty } from './utils/helpers';
 
 export interface InputMaskProps {
   mask: string,
@@ -11,21 +21,70 @@ export interface InputMaskProps {
   placeholderChar?: string,
   formatChars?: FormatChars,
   onChange: (value: string) => void,
+  onFocus?: FocusEventHandler<HTMLInputElement>,
+  onBlur?: FocusEventHandler<HTMLInputElement>,
+  onMouseDown?: MouseEventHandler<HTMLInputElement>,
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>,
+  onPaste?: ClipboardEventHandler<HTMLInputElement>,
 }
 
 export const useInputMask = (props: InputMaskProps) => {
   const {
-    mask, placeholderChar = '_', formatChars = defaultFormatChars, onChange,
+    mask,
+    value,
+    placeholderChar = '_',
+    formatChars = defaultFormatChars,
+    onChange,
+    onBlur,
+    onFocus,
+    onKeyDown,
+    onMouseDown,
+    onPaste,
   } = props;
 
-  const emptyValue = applyMask({
+  const emptyValue = React.useMemo(() => applyMask({
     value: null, mask, placeholderChar, formatChars,
-  });
+  }), [mask, placeholderChar, formatChars]);
 
-  const value = props.value ?? emptyValue;
+  const [inputValue, setInputValue] = React.useState(() => applyMask({
+    value, mask, placeholderChar, formatChars,
+  }));
+
+  React.useEffect((): void => {
+    if (value === null) {
+      const newValue = applyMask({
+        value, mask, placeholderChar, formatChars,
+      });
+
+      setInputValue(newValue);
+      onChange(valueOrEmpty(newValue, placeholderChar));
+    }
+  }, [formatChars, mask, onChange, placeholderChar, value]);
+
+  const [isFocused, setIsFocused] = React.useState(false);
+
+  const handleChange = React.useCallback((newValue: string) => {
+    onChange(valueOrEmpty(newValue, placeholderChar));
+    setInputValue(newValue);
+  }, [onChange, placeholderChar]);
+
+  const handleInputChange = React.useCallback((ev: ChangeEvent<HTMLInputElement>) => {
+    // changes like auto-fill or something
+    handleChange(
+      applyMask({
+        value: ev.target.value,
+        mask,
+        placeholderChar,
+        formatChars,
+      }),
+    );
+  }, [formatChars, handleChange, mask, placeholderChar]);
 
   const handleFocus = React.useCallback((ev: FocusEvent<HTMLInputElement>) => {
-    const placeholderCharIndex = value.indexOf(placeholderChar);
+    // timeout to enable Chrome's autofill
+    setTimeout(() => setIsFocused(true), 1);
+
+    const placeholderCharIndex = inputValue.indexOf(placeholderChar);
 
     if (placeholderCharIndex === -1) {
       // no placeholder chars in value, leave cursor where it is
@@ -39,38 +98,57 @@ export const useInputMask = (props: InputMaskProps) => {
     // for unknown reasons Chrome resets focus twice after render
     // timeout is needed to reset focus again
     setTimeout(setCursorPosition);
-  }, [value]);
 
-  const handleKeyDown = React.useCallback((ev) => {
+    onFocus?.(ev);
+  }, [inputValue, onFocus, placeholderChar]);
+
+  const handleBlur = React.useCallback((ev: FocusEvent<HTMLInputElement>) => {
+    setIsFocused(false);
+
+    onBlur?.(ev);
+  }, [onBlur]);
+
+  const handleKeyDown = React.useCallback((ev: KeyboardEvent<HTMLInputElement>) => {
     if (ev.ctrlKey) {
-      // TODO: handle CTRL + X
+      if (ev.code === 'KeyX') {
+        cutChars({
+          inputElement: ev.target as HTMLInputElement,
+          mask,
+          placeholderChar,
+          formatChars,
+          onChange: handleChange,
+        });
+
+        return;
+      }
+
       return;
     }
 
     if (ev.key === 'Backspace') {
       ev.preventDefault();
-      const selectionStart = ev.target.selectionStart ?? 0;
-      const selectionEnd = ev.target.selectionEnd ?? 0;
-      const isRange = !!(selectionEnd - selectionStart);
-
-      const newValue = isRange
-        ? value.slice(0, selectionStart) + value.slice(selectionEnd)
-        : value.slice(0, selectionStart - 1) + value.slice(selectionStart);
-
-      const valueDiff = diff(value, newValue);
 
       removeChars({
         inputElement: ev.target as HTMLInputElement,
-        valueDiff,
         mask,
         placeholderChar,
         formatChars,
-        onChange,
+        onChange: handleChange,
+        direction: RemoveDirection.Left,
       });
     }
 
     if (ev.key === 'Delete') {
       ev.preventDefault();
+
+      removeChars({
+        inputElement: ev.target as HTMLInputElement,
+        mask,
+        placeholderChar,
+        formatChars,
+        onChange: handleChange,
+        direction: RemoveDirection.Right,
+      });
     }
 
     if (ev.key.length === 1) {
@@ -81,33 +159,61 @@ export const useInputMask = (props: InputMaskProps) => {
         mask,
         placeholderChar,
         formatChars,
-        onChange,
+        onChange: handleChange,
       });
     }
-  }, [onChange, value, mask, placeholderChar, formatChars]);
+
+    onKeyDown?.(ev);
+  }, [onKeyDown, mask, placeholderChar, formatChars, handleChange]);
+
+  const handleMouseDown = React.useCallback((ev: MouseEvent<HTMLInputElement>) => {
+    if (!isFocused) {
+      ev.preventDefault();
+
+      (ev.target as HTMLInputElement).focus();
+    }
+
+    onMouseDown?.(ev);
+  }, [isFocused, onMouseDown]);
 
   const handlePaste = React.useCallback((ev: ClipboardEvent<HTMLInputElement>) => {
     ev.preventDefault();
     const data = ev.clipboardData.getData('text');
 
-    replaceChars({
+    pasteChars({
       inputElement: ev.target as HTMLInputElement,
       chars: data,
       mask,
       placeholderChar,
       formatChars,
-      onChange,
+      onChange: handleChange,
     });
-  }, []);
+
+    onPaste?.(ev);
+  }, [formatChars, handleChange, mask, onPaste, placeholderChar]);
 
   const getInputProps = React.useCallback(() => ({
+    onChange: handleInputChange,
     onFocus: handleFocus,
+    onBlur: handleBlur,
+    onMouseDown: handleMouseDown,
     onKeyDown: handleKeyDown,
     onPaste: handlePaste,
-    value,
-  }), [handleFocus, value]);
+    value: isFocused || inputValue !== emptyValue ? inputValue : '',
+  }), [
+    emptyValue,
+    handleBlur,
+    handleFocus,
+    handleInputChange,
+    handleKeyDown,
+    handleMouseDown,
+    handlePaste,
+    inputValue,
+    isFocused,
+  ]);
 
   return {
     getInputProps,
+    rawValue: inputValue,
   };
 };

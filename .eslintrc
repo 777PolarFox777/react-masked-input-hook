@@ -5,7 +5,8 @@
     "airbnb",
     "plugin:@typescript-eslint/recommended",
     "plugin:react/recommended",
-    "plugin:import/typescript"
+    "plugin:import/typescript",
+    "plugin:react-hooks/recommended"
   ],
   "settings": {
     "import/parsers": {
@@ -14,7 +15,7 @@
       ]
     }
   },
-  "plugins": ["jest"],
+  "plugins": ["jest", "react-hooks"],
   "env": {
     "jest/globals": true,
     "browser": true
