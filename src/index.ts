@@ -51,7 +51,7 @@ export const useInputMask = (props: InputMaskProps) => {
   }));
 
   React.useEffect((): void => {
-    if (value === null) {
+    if (value !== '') {
       const newValue = applyMask({
         value, mask, placeholderChar, formatChars,
       });

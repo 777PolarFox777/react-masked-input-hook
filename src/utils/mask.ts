@@ -265,7 +265,8 @@ export const replaceChars = (args: ReplaceCharsArgs) => {
   inputElement.value = newValue;
   onChange(newValue);
 
-  const placeholderCharIndex = newValue.indexOf(placeholderChar);
+  const placeholderCharIndex = selectionStart
+    + newValue.slice(selectionStart).indexOf(placeholderChar);
 
   const newCursorPosition = placeholderCharIndex === -1 ? newValue.length : placeholderCharIndex;
   // move cursor by number of inserted symbols

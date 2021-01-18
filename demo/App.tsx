@@ -41,6 +41,9 @@ export const App = () => {
       <button type="button" onClick={() => setPhone(null)}>
         Reset field
       </button>
+      <button type="button" onClick={() => setPhone('79885793452')}>
+        Fill field
+      </button>
       <br />
       <br />
       <h2>Date example:</h2>
