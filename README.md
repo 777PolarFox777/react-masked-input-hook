@@ -36,10 +36,10 @@ export const PhoneInput = () => {
 
 | Name                                                      | Type                                            | Default                                      | Description                                                                                                    |
 | :-------------------------------------------------------: | :---------------------------------------------: | :------------------------------------------: | :------------------------------------------------------------------------------------------------------------: |
-| **[`mask (required)`](#mask)**                            | `string` |                                      |                                              | The string that represents a mask format                                                                       |
-| **[`value (required)`](#value)**                          | `string | null`                                 |                                              | The value of the input                                                                                         |
-| **placeholderChar**                                       | `string | undefined`                            | `_`                                          | A character that represents unfilled parts of the mask                                                         |
-| **formatChars**                                           | `{ [x: string]: string } | undefined`           | [defaultFormatChars](src/utils/constants.ts) | An object of rules where key represents a character from mask and value is a RegExp for testing that character |
+| **[`mask (required)`](#mask)**                            | `string`                                        |                                              | The string that represents a mask format                                                                       |
+| **[`value (required)`](#value)**                          | `string \| null`                                |                                              | The value of the input                                                                                         |
+| **placeholderChar**                                       | `string \| undefined`                           | `_`                                          | A character that represents unfilled parts of the mask                                                         |
+| **formatChars**                                           | `{ [x: string]: string } \| undefined`          | [defaultFormatChars](src/utils/constants.ts) | An object of rules where key represents a character from mask and value is a RegExp for testing that character |
 | **onChange**                                              | `(value: string) => void`                       |                                              | Change event handler                                                                                           |
 | **onFocus**                                               | `React.FocusEventHandler<HTMLInputElement>`     |                                              | Focus event handler                                                                                            |
 | **onBlur**                                                | `React.FocusEventHandler<HTMLInputElement>`     |                                              | Blur event handler                                                                                             |
@@ -64,5 +64,5 @@ To clean the input set value to `null`.
 If in some cases instead of using the controlled value you will need a real value that user sees at that moment, use `rawValue`.
 
 ```js
-const { rawValue, getInputProps } = useInputMask(...);
+const { rawValue, getInputProps } = useInputMask({ mask: '+7 (###) ###-##-##' });
 ```

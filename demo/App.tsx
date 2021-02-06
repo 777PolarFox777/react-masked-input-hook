@@ -35,13 +35,18 @@ export const App = () => {
       {JSON.stringify(phone)}
       <br />
       <br />
-      <input name="phone" {...phoneInput.getInputProps()} placeholder="Type your phone number..." />
+      <input
+        {...phoneInput.getInputProps()}
+        data-cy="phone-input"
+        name="phone"
+        placeholder="Type your phone number..."
+      />
       <br />
       <br />
-      <button type="button" onClick={() => setPhone(null)}>
+      <button data-cy="phone-reset" type="button" onClick={() => setPhone(null)}>
         Reset field
       </button>
-      <button type="button" onClick={() => setPhone('79885793452')}>
+      <button data-cy="phone-fill" type="button" onClick={() => setPhone('79885793452')}>
         Fill field
       </button>
       <br />

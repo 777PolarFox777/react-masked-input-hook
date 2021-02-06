@@ -15,10 +15,11 @@
       ]
     }
   },
-  "plugins": ["jest", "react-hooks"],
+  "plugins": ["jest", "react-hooks", "cypress"],
   "env": {
     "jest/globals": true,
-    "browser": true
+    "browser": true,
+    "cypress/globals": true
   },
   "rules": {
     "import/no-unresolved": "off",
