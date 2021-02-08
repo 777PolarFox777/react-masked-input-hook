@@ -1,84 +1,46 @@
 import * as React from 'react';
-import { useInputMask } from '../src';
-
-const phoneMask = '+7 (###) ###-##-##';
-const dateMask = '##/##/####';
-const carNumberMask = 'AAA-####';
+import './styles.scss';
+import clsx from 'clsx';
+import { boostrapReactLogoUrl, Libs, materialUILogoUrl } from './constants';
+import { BootstrapDemo } from './BoostrapDemo';
+import { MaterialDemo } from './MaterialDemo';
 
 export const App = () => {
-  const [phone, setPhone] = React.useState<string | null>(null);
-
-  const phoneInput = useInputMask({
-    mask: phoneMask, value: phone, onChange: setPhone,
-  });
-
-  const [date, setDate] = React.useState<string | null>('14/01/2021');
-
-  const dateInput = useInputMask({
-    mask: dateMask, value: date, onChange: setDate,
-  });
-
-  const [car, setCar] = React.useState<string | null>(null);
-
-  const carInput = useInputMask({
-    mask: carNumberMask, value: car, onChange: setCar,
-  });
+  const [lib, setLib] = React.useState<Libs>(Libs.Boostrap);
 
   return (
-    <div>
-      <h1>React MaskedInput hook</h1>
+    <div className="demo-wrapper">
+      <div className="demo-header-container">
+        <h1 className="demo-header">React MaskedInput hook</h1>
+        <div className="demo-lib-select">
+          <button
+            type="button"
+            className={clsx('demo-lib-button', lib === Libs.Boostrap && 'selected')}
+            onClick={() => setLib(Libs.Boostrap)}
+            title="Boostrap components"
+          >
+            <img src={boostrapReactLogoUrl} alt="React Boostrap logo" />
+          </button>
+          {' '}
+          <button
+            type="button"
+            className={clsx('demo-lib-button', lib === Libs.Material && 'selected')}
+            onClick={() => setLib(Libs.Material)}
+            title="Material components"
+          >
+            <img src={materialUILogoUrl} alt="Material-UI logo" />
+          </button>
+        </div>
+      </div>
       <br />
-      <h2>Phone example:</h2>
-      <br />
-      current value:
-      {' '}
-      {JSON.stringify(phone)}
-      <br />
-      <br />
-      <input
-        {...phoneInput.getInputProps()}
-        data-cy="phone-input"
-        name="phone"
-        placeholder="Type your phone number..."
-      />
-      <br />
-      <br />
-      <button data-cy="phone-reset" type="button" onClick={() => setPhone(null)}>
-        Reset field
-      </button>
-      <button data-cy="phone-fill" type="button" onClick={() => setPhone('79885793452')}>
-        Fill field
-      </button>
-      <br />
-      <br />
-      <h2>Date example:</h2>
-      <br />
-      current value:
-      {' '}
-      {JSON.stringify(date)}
-      <br />
-      <br />
-      <input name="date" {...dateInput.getInputProps()} placeholder="Type your date..." />
-      <br />
-      <br />
-      <button type="button" onClick={() => setDate(null)}>
-        Reset field
-      </button>
-      <br />
-      <br />
-      <h2>Car registration number:</h2>
-      <br />
-      current value:
-      {' '}
-      {JSON.stringify(car)}
-      <br />
-      <br />
-      <input name="car" {...carInput.getInputProps()} placeholder="Type your number..." />
-      <br />
-      <br />
-      <button type="button" onClick={() => setCar(null)}>
-        Reset field
-      </button>
+      <div className="demo-content">
+        {lib === Libs.Boostrap && (
+          <BootstrapDemo />
+        )}
+        {lib === Libs.Material && (
+          <MaterialDemo />
+        )}
+      </div>
     </div>
   );
 };
